@@ -41,16 +41,23 @@ const shouldShowMediaPreview = (file: File, fileType: FilePreviewType | undefine
 
 type FilePreviewProps = {
 	file: File;
+	key: string;
+	index: number; // Index of the file in the queue
+	onRemove: (index: number) => void; // Function to remove file from queue
 };
 
-const FilePreview = ({ file }: FilePreviewProps): ReactElement => {
+const FilePreview = ({ file, index, onRemove }: FilePreviewProps): ReactElement => {
 	const fileType = getFileType(file.type);
+
+	const handleRemove = () => {
+		onRemove(index); // Call the onRemove function with index
+	};
 
 	if (shouldShowMediaPreview(file, fileType)) {
 		return <MediaPreview file={file} fileType={fileType as FilePreviewType} />;
 	}
 
-	return <GenericPreview file={file} />;
+	return <GenericPreview file={file} onRemove={handleRemove} index={index} />;
 };
 
 export default FilePreview;

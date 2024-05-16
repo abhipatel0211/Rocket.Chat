@@ -69,6 +69,7 @@ const readFromGridFS = async function (
 	const store = UploadFS.getStore(storeName);
 	const rs = await store.getReadStream(fileId, file);
 	const ws = new stream.PassThrough();
+	console.log('from gridfs', file);
 
 	[rs, ws].forEach((stream) =>
 		stream.on('error', (err) => {

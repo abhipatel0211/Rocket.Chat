@@ -221,6 +221,7 @@ export class RestClient implements RestClientInterface {
 	}
 
 	send(endpoint: string, method: string, { headers, ...options }: Omit<RequestInit, 'method'> = {}): Promise<Response> {
+		console.log('endpoint from api-client index.ts', endpoint, method, options);
 		return fetch(`${this.baseUrl}${`/${endpoint}`.replace(/\/+/, '/')}`, {
 			...options,
 			headers: { ...this.getCredentialsAsHeaders(), ...this.headers, ...headers },
@@ -268,35 +269,83 @@ export class RestClient implements RestClientInterface {
 	}
 
 	upload: RestClientInterface['upload'] = (endpoint, params, events, options = {}) => {
+		console.log('Params received:', params);
 		if (!params) {
 			throw new Error('Missing params');
 		}
 		const xhr = new XMLHttpRequest();
 		const data = new FormData();
 
+		// if(params.file[0] instanceof File) {
+		// 	console.log('File object found. Appending with name:', params.file[0].name);
+		// 	data.append('file', params.file[0], params.file[0].name);
+		// 	console.log("data from single file testing ", data);
+		// }
+		// if(params.file[1] instanceof File) {
+		// 	console.log('File object found. Appending with name:', params.file[1].name);
+		// 	data.append('file', params.file[0], params.file[1].name);
+		// 	console.log("data from single file testing ", data);
+		// }
+
 		Object.entries(params as any).forEach(([key, value]) => {
-			if (value instanceof File) {
+			console.log('Processing parameter:', key, 'with value:', value);
+			if (Array.isArray(value)) {
+				console.log('Array found. Appending as JSON string:', value);
+				// Convert the array to JSON and append it
+				// data.append(key, JSON.stringify(value));
+
+				value.forEach((file) => {
+					console.log('Appending item:', file, 'with name:', file.name);
+					data.append(key, file, file.name);
+				});
+
+				// if done data.append(file.name,key); than it comes like
+				// bda 123 Abhi.pdf: (binary)
+				// bda 132.pdf: (binary)
+				// bda 139 dhruv.pdf: (binary)
+
+				// value.forEach((item) => {
+				// 	data.append(key, item,item.name);
+				// })
+			} else if (value instanceof File) {
+				console.log('File object found. Appending with name:', value.name);
+				// If it's a File object, append it with its name
 				data.append(key, value, value.name);
-				return;
+			} else {
+				console.log('Appending value as is:', value);
+				// For non-array and non-file values
+				value && data.append(key, value as any);
 			}
-			value && data.append(key, value as any);
 		});
+		// data.append("data", "test");
+		console.log('Sending FormData object:', data);
+		for (var ans of data.entries()) {
+			console.log('field one ' + ans[0] + ' filed ' + ans[1]);
+		}
+
+		console.log('this is baseurl from index.ts', this.baseUrl);
+		console.log('this coplete url from index.ts api-client' + `${this.baseUrl}${`/${endpoint}`.replace(/\/+/, '/')}`);
 
 		xhr.open('POST', `${this.baseUrl}${`/${endpoint}`.replace(/\/+/, '/')}`, true);
 		Object.entries({ ...this.getCredentialsAsHeaders(), ...options.headers }).forEach(([key, value]) => {
+			console.log('xhr for from getuploadformData key ' + key + ' value ' + value);
 			xhr.setRequestHeader(key, value);
 		});
 
 		if (events?.load) {
+			console.log('load from index.ts in api-client');
 			xhr.upload.addEventListener('load', events.load);
 		}
 		if (events?.progress) {
+			console.log('progress from index.ts in api-client');
 			xhr.upload.addEventListener('progress', events.progress);
 		}
 		if (events?.error) {
+			console.log('error from index.ts in api-client');
 			xhr.addEventListener('error', events.error);
 		}
 		if (events?.abort) {
+			console.log('abort from index.ts in api-client');
 			xhr.addEventListener('abort', events.abort);
 		}
 
@@ -304,6 +353,64 @@ export class RestClient implements RestClientInterface {
 
 		return xhr;
 	};
+
+	// upload: RestClientInterface['upload'] = (endpoint, params, events, options = {}) => {
+	// 	console.log(params);
+	// 	if (!params) {
+	// 		throw new Error('Missing params');
+	// 	}
+	// 	const xhr = new XMLHttpRequest();
+	// 	const data = new FormData();
+
+	// 	Object.entries(params as any).forEach(([key, value]) => {
+	// 		if (Array.isArray(value)) {
+	//     console.log("from api-client" + value);
+
+	//     // Assuming each value in the array is a File object
+	//     // value.forEach(file => {
+	// 	const file = value;
+	//     data.append(key, file, file.name);
+	//     // });
+	// } else if (value instanceof File) {
+	//     data.append(key, value, value.name);
+	// } else {
+	//     // For non-array and non-file values
+	//     value && data.append(key, value as any);
+
+	// 		// if(Array.isArray(value)) {
+	// 		// 	console.log("from api-client"+value);
+
+	// 		// }
+	// 		// // if (value instanceof File) {
+	// 		// // 	data.append(key, value, value.name);
+	// 		// // 	return;
+	// 		// // }
+	// 		// value && data.append(key, value as any);
+	// 	}
+	// });
+
+	// 	xhr.open('POST', `${this.baseUrl}${`/${endpoint}`.replace(/\/+/, '/')}`, true);
+	// 	Object.entries({ ...this.getCredentialsAsHeaders(), ...options.headers }).forEach(([key, value]) => {
+	// 		xhr.setRequestHeader(key, value);
+	// 	});
+
+	// 	if (events?.load) {
+	// 		xhr.upload.addEventListener('load', events.load);
+	// 	}
+	// 	if (events?.progress) {
+	// 		xhr.upload.addEventListener('progress', events.progress);
+	// 	}
+	// 	if (events?.error) {
+	// 		xhr.addEventListener('error', events.error);
+	// 	}
+	// 	if (events?.abort) {
+	// 		xhr.addEventListener('abort', events.abort);
+	// 	}
+
+	// 	xhr.send(data);
+
+	// 	return xhr;
+	// };
 
 	use(middleware: Middleware<RestClientInterface['send']>): void {
 		const fn = this.send.bind(this);

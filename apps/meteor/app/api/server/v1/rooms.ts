@@ -1,5 +1,5 @@
 import { Media } from '@rocket.chat/core-services';
-import type { IRoom, IUpload } from '@rocket.chat/core-typings';
+import type { IRoom, IUpload, IMessage } from '@rocket.chat/core-typings';
 import { Messages, Rooms, Users, Uploads } from '@rocket.chat/models';
 import type { Notifications } from '@rocket.chat/rest-typings';
 import { isGETRoomsNameExists, isRoomsImagesProps, isRoomsMuteUnmuteUserProps } from '@rocket.chat/rest-typings';
@@ -144,52 +144,163 @@ API.v1.addRoute(
 	{ authRequired: true },
 	{
 		async post() {
+			console.log('1 Uploading file to room from rooms.ts : ', this.urlParams.rid);
+			// console.log("this from rooms.ts : "+this.request.body.file);
+
+			if (Array.isArray(this.request.body.file)) {
+				console.log('file is array from rooms.ts : ' + this.request.body.file.length);
+			}
+			// for(var x of this.entries()){
+			// 	console.log((x[0]+":"+x[1]));
+			// 	// console.log("x from rooms.ts : "+x);
+			// }
+			// console.log("this from rooms.ts  file first: "+this.urlParams);
+			// console.log("this from rooms.ts  filename first: "+this.urlParams);
+
 			if (!(await canAccessRoomIdAsync(this.urlParams.rid, this.userId))) {
+				console.log('1. inside if Uploading file to room from rooms.ts : ', this.urlParams.rid);
 				return API.v1.unauthorized();
 			}
 
-			const file = await getUploadFormData(
+			console.log('2 Uploading file to room from rooms.ts : ', this.urlParams.rid);
+			const files = await getUploadFormData(
 				{
 					request: this.request,
 				},
 				{ field: 'file', sizeLimit: settings.get<number>('FileUpload_MaxFileSize') },
 			);
 
-			if (!file) {
-				throw new Meteor.Error('invalid-field');
+			console.log('3 Uploading complete and response from file to room from rooms.ts : ', files);
+			let uploadedArray: Partial<IUpload>[] = [];
+			let message: IMessage | null = null;
+			var fieldarr: Record<string, string>[] = [];
+
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				console.log('1 file from rooms.ts : ', file);
+
+				if (!file) {
+					console.log('no file found');
+					throw new Meteor.Error('invalid-field');
+				}
+
+				const { fields } = file;
+				let { fileBuffer } = file;
+
+				const details = {
+					name: file.filename,
+					size: fileBuffer.length,
+					type: file.mimetype,
+					rid: this.urlParams.rid,
+					userId: this.userId,
+				};
+
+				console.log('Details from rooms.ts : ', details);
+
+				const stripExif = settings.get('Message_Attachments_Strip_Exif');
+				if (stripExif) {
+					// No need to check mime. Library will ignore any files without exif/xmp tags (like BMP, ico, PDF, etc)
+					console.log('stripExif indide if from rooms.ts : ', stripExif);
+					fileBuffer = await Media.stripExifFromBuffer(fileBuffer);
+					console.log('fileBuffer from rooms.ts : ', fileBuffer);
+				}
+				console.log('stripExif indide if from rooms.ts : ', stripExif);
+
+				const fileStore = FileUpload.getStore('Uploads');
+				console.log('fileStore from rooms.ts : ', fileStore);
+				let uploadedFile = await fileStore.insert(details, fileBuffer);
+				uploadedArray.push(uploadedFile);
+				// it store the file to db
+				console.log('uploadedFile from rooms.ts : ', uploadedFile, ' uploadedfile _id from rooms.ts : ' + uploadedFile._id);
+
+				uploadedFile.description = fields.description;
+				console.log('uploadedarray from rooms.ts : ' + uploadedArray.length + ' uploadedarray _id from rooms.ts : ' + uploadedArray[0]._id);
+				fieldarr.push(fields);
+				delete fields.description;
+
+				if (i === files.length - 1) {
+					await sendFileMessage(this.userId, { roomId: this.urlParams.rid, file: uploadedArray, msgData: fieldarr[0] });
+					console.log('before msg from room.ts : id is ', uploadedArray[0]._id ? uploadedArray[0]._id : uploadedFile._id, this.userId);
+					message = await Messages.getMessageByFileIdAndUsername(
+						uploadedArray[0]._id ? uploadedArray[0]._id : uploadedFile._id,
+						this.userId,
+					);
+					console.log('upload file _id from rooms.ts : ' + uploadedFile._id + message);
+
+					return API.v1.success({
+						message,
+					});
+				}
 			}
+			// files.forEach(async (file) => {
+			// 	console.log("1 file from rooms.ts : ", file);
 
-			const { fields } = file;
-			let { fileBuffer } = file;
+			// 	if (!file) {
+			// 		console.log("no file found");
+			// 		throw new Meteor.Error('invalid-field');
+			// 	}
 
-			const details = {
-				name: file.filename,
-				size: fileBuffer.length,
-				type: file.mimetype,
-				rid: this.urlParams.rid,
-				userId: this.userId,
-			};
+			// 	const { fields } = file;
+			// 	let { fileBuffer } = file;
 
-			const stripExif = settings.get('Message_Attachments_Strip_Exif');
-			if (stripExif) {
-				// No need to check mime. Library will ignore any files without exif/xmp tags (like BMP, ico, PDF, etc)
-				fileBuffer = await Media.stripExifFromBuffer(fileBuffer);
-			}
+			// 	const details = {
+			// 		name: file.filename,
+			// 		size: fileBuffer.length,
+			// 		type: file.mimetype,
+			// 		rid: this.urlParams.rid,
+			// 		userId: this.userId,
+			// 	};
 
-			const fileStore = FileUpload.getStore('Uploads');
-			const uploadedFile = await fileStore.insert(details, fileBuffer);
+			// 	console.log("Details from rooms.ts : ", details);
 
-			uploadedFile.description = fields.description;
+			// 	const stripExif = settings.get('Message_Attachments_Strip_Exif');
+			// 	if (stripExif) {
+			// 		// No need to check mime. Library will ignore any files without exif/xmp tags (like BMP, ico, PDF, etc)
+			// 		console.log("stripExif indide if from rooms.ts : ", stripExif);
+			// 		fileBuffer = await Media.stripExifFromBuffer(fileBuffer);
+			// 		console.log("fileBuffer from rooms.ts : ", fileBuffer);
+			// 	}
+			// 	console.log("stripExif indide if from rooms.ts : ", stripExif);
 
-			delete fields.description;
+			// 	const fileStore = FileUpload.getStore('Uploads');
+			// 	console.log("fileStore from rooms.ts : ", fileStore);
+			// 	const uploadedFile = await fileStore.insert(details, fileBuffer);
+			// 	// it store the file to db
+			// 	console.log("uploadedFile from rooms.ts : ", uploadedFile , " uploadedfile _id from rooms.ts : "+uploadedFile._id);
 
-			await sendFileMessage(this.userId, { roomId: this.urlParams.rid, file: uploadedFile, msgData: fields });
+			// 	uploadedFile.description = fields.description;
+			// 	uploadedArray.push(uploadedFile)
+			// 	console.log("uploadedarray from rooms.ts : "+uploadedArray.length+" uploadedarray _id from rooms.ts : "+uploadedArray[0]._id);
+			// 	fieldarr.push(fields);
+			// 	delete fields.description;
 
-			const message = await Messages.getMessageByFileIdAndUsername(uploadedFile._id, this.userId);
+			// 	message =await Messages.getMessageByFileIdAndUsername(uploadedFile?._id, this.userId);
+			// 	// await sendFileMessage(this.userId, { roomId: this.urlParams.rid, file: uploadedFile, msgData: fields });
+			// 	// console.log("message from rooms.ts : "+message);
+			// })
+			// const uploadedFile =uploadedArray[0];
+
+			// await sendFileMessage(this.userId, { roomId: this.urlParams.rid, file: uploadedArray, msgData: fieldarr[0] });
+			// await sendFileMessage(this.userId, { roomId: this.urlParams.rid, file: uploadedFile, msgData: fields });
+
+			// message =await Messages.getMessageByFileIdAndUsername(uploadedArray[0]?._id, this.userId);
+
+			console.log('upload file _id from rooms.ts : ' + uploadedArray[0]._id + message);
+
+			// const message = await Messages.getMessageByFileIdAndUsername(uploadedFile._id, this.userId);
+			// const fields
+
+			// await sendFileMessage(this.userId, { roomId: this.urlParams.rid, file: uploadedFile, msgData: fields });
 
 			return API.v1.success({
 				message,
 			});
+
+			// 	const message = await Messages.getMessageByFileIdAndUsername(uploadedFile._id, this.userId);
+
+			// 	return API.v1.success({
+			// 		message,
+			// 	});
 		},
 	},
 );

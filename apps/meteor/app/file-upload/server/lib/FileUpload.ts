@@ -47,9 +47,10 @@ settings.watch('FileUpload_MaxFileSize', async (value: string) => {
 });
 
 const handlers: Record<string, FileUploadClass> = {};
-
+// console.log('handlers from fileupload.ts' + handlers);
 const defaults: Record<string, () => Partial<StoreOptions>> = {
 	Uploads() {
+		// console.log('Uploads from fileupload.ts');
 		return {
 			collection: Uploads,
 			filter: new UploadFS.Filter({
@@ -65,7 +66,7 @@ const defaults: Record<string, () => Partial<StoreOptions>> = {
 					res.writeHead(403);
 					return false;
 				}
-
+				// console.log('onread from fileupload.ts', file);
 				res.setHeader('content-disposition', `attachment; filename="${encodeURIComponent(file.name || '')}"`);
 				return true;
 			},
@@ -119,7 +120,10 @@ export const FileUpload = {
 		if (!type || !(type in FileUpload.defaults)) {
 			throw new Error('Store type undefined');
 		}
+		// console.log(type);
 		const stores = UploadFS.getStores();
+		console.log('config upload store  from fileupload.ts' + stores);
+		console.log(name);
 		delete stores[name];
 
 		return new UploadFS.store[store](
@@ -137,6 +141,7 @@ export const FileUpload = {
 		if (!Match.test(file.rid, String)) {
 			return false;
 		}
+		console.log('2 validate file upload from file upload.ts it is room id', file.rid);
 
 		// livechat users can upload files but they don't have an userId
 		const user = (file.userId && (await Users.findOne(file.userId))) || undefined;
@@ -514,6 +519,7 @@ export const FileUpload = {
 
 	get(file: IUpload, req: http.IncomingMessage, res: http.ServerResponse, next: NextFunction) {
 		const store = this.getStoreByName(file.store);
+		console.log('fileupload get from fileupload.ts', store);
 		if (store?.get) {
 			return store.get(file, req, res, next);
 		}
@@ -665,6 +671,7 @@ export class FileUploadClass {
 		this.get = get;
 		this.copy = copy;
 
+		// console.log(this);
 		if (insert) {
 			this.insert = insert;
 		}
@@ -747,27 +754,54 @@ export class FileUploadClass {
 	}
 
 	async _doInsert(fileData: OptionalId<IUpload>, streamOrBuffer: ReadableStream | stream | Buffer): Promise<IUpload> {
+		// console.log('from _doinsert ' + fileData + ' and streamObuffer from the fileuploads.ts _doinsert ' + streamOrBuffer);
 		const fileId = await this.store.create(fileData);
 		const tmpFile = UploadFS.getTempFilePath(fileId);
+		// console.log('from doinsert filedata from fileupload.ts ', fileData, ' streamorbuffer from fileupload.ts ', streamOrBuffer);
 
 		try {
 			if (streamOrBuffer instanceof stream) {
-				streamOrBuffer.pipe(fs.createWriteStream(tmpFile));
+				// Create a promise-based function to asynchronously pipe the stream
+				const pipeStream = () => {
+					return new Promise((resolve, reject) => {
+						streamOrBuffer.pipe(fs.createWriteStream(tmpFile)).on('finish', resolve).on('error', reject);
+					});
+				};
+				await pipeStream(); // Wait for the stream to finish piping
 			} else if (streamOrBuffer instanceof Buffer) {
-				fs.writeFileSync(tmpFile, streamOrBuffer);
+				// Use asynchronous writeFile method
+				await fs.promises.writeFile(tmpFile, streamOrBuffer);
 			} else {
 				throw new Error('Invalid file type');
 			}
 
+			// Wait for the completion of the asynchronous operation
 			const file = await ufsComplete(fileId, this.name);
 
 			return file;
-		} catch (e: any) {
+		} catch (e) {
 			throw e;
 		}
+
+		// try {
+		// 	if (streamOrBuffer instanceof stream) {
+		// 		streamOrBuffer.pipe(fs.createWriteStream(tmpFile));
+		// 	} else if (streamOrBuffer instanceof Buffer) {
+		// 		fs.writeFileSync(tmpFile, streamOrBuffer);
+		// 	} else {
+		// 		throw new Error('Invalid file type');
+		// 	}
+
+		// 	const file = await ufsComplete(fileId, this.name);
+
+		// 	return file;
+		// } catch (e: any) {
+		// 	throw e;
+		// }
 	}
 
 	async insert(fileData: OptionalId<IUpload>, streamOrBuffer: ReadableStream | stream.Readable | Buffer) {
+		console.log('from insert filedata from fileupload.ts ', fileData, ' streamorbuffer from fileupload.ts ', streamOrBuffer);
 		if (streamOrBuffer instanceof stream) {
 			streamOrBuffer = await streamToBuffer(streamOrBuffer);
 		}

@@ -586,7 +586,7 @@ export type RoomsEndpoints = {
 
 	'/v1/rooms.upload/:rid': {
 		POST: (params: {
-			file: File;
+			file: File[] | File;
 			description?: string;
 			avatar?: string;
 			emoji?: string;

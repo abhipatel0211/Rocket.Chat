@@ -24,7 +24,7 @@ export const MessageList = function MessageList({ rid, messageListRef }: Message
 	const showUserAvatar = !!useUserPreference<boolean>('displayAvatars');
 	const messageGroupingPeriod = Number(useSetting('Message_GroupingPeriod'));
 	const firstUnreadMessageId = useFirstUnreadMessageId();
-
+	console.log('messages from message list.tsx', messages);
 	return (
 		<MessageListProvider messageListRef={messageListRef}>
 			<SelectedMessagesProvider>

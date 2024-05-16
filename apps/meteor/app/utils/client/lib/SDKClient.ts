@@ -111,6 +111,8 @@ const createNewMeteorStream = (streamName: StreamNames, key: StreamKeys<StreamNa
 		});
 	};
 
+	console.log('createNewMeteorStream from SDKclient.ts ', streamName, key, args);
+
 	return {
 		stop: sub.stop,
 		onChange,
@@ -168,6 +170,7 @@ const createStreamManager = () => {
 				return;
 			}
 
+			const stream = streams.get(eventLiteral);
 			if (stream) {
 				stream.stop();
 				streams.delete(eventLiteral);
@@ -179,6 +182,8 @@ const createStreamManager = () => {
 		if (!streams.has(eventLiteral)) {
 			streams.set(eventLiteral, stream);
 		}
+
+		console.log('stream from SDKclient.ts', name, key, args);
 
 		return {
 			id: '',
@@ -199,6 +204,8 @@ const createStreamManager = () => {
 		}
 	};
 
+	console.log('createStreamManager from SDKclient.ts');
+
 	return { stream, stopAll };
 };
 
@@ -212,6 +219,8 @@ export const createSDK = (rest: RestClientInterface) => {
 	const call = <T extends keyof ServerMethods>(method: T, ...args: Parameters<ServerMethods[T]>): Promise<ReturnType<ServerMethods[T]>> => {
 		return Meteor.callAsync(method, ...args);
 	};
+
+	console.log('createSDK from SDKclient.ts', rest);
 
 	return {
 		rest,

@@ -10,15 +10,18 @@ import { prependReplies } from '../../utils/prependReplies';
 import type { ChatAPI } from '../ChatAPI';
 
 export const uploadFiles = async (chat: ChatAPI, files: readonly File[], resetFileInput?: () => void): Promise<void> => {
+	console.log('uploadFiles', files, chat);
+	console.log('uploadFiles');
 	const replies = chat.composer?.quotedMessages.get() ?? [];
-
+	console.log(replies);
 	const msg = await prependReplies('', replies);
-
+	console.log(msg);
 	const room = await chat.data.getRoom();
+	console.log(room);
+	let queue = [...files];
 
-	const queue = [...files];
-
-	const uploadFile = (file: File, description?: string, extraData?: Pick<IMessage, 't' | 'e2e'>) => {
+	const uploadFile = (file: File[], description?: string, extraData?: Pick<IMessage, 't' | 'e2e'>) => {
+		console.log('uploadFile from uploadFiles.ts ', file, description, extraData);
 		chat.uploads.send(file, {
 			description,
 			msg,
@@ -26,26 +29,37 @@ export const uploadFiles = async (chat: ChatAPI, files: readonly File[], resetFi
 		});
 		chat.composer?.clear();
 		imperativeModal.close();
-		uploadNextFile();
+		// uploadNextFile();
 	};
 
 	const uploadNextFile = (): void => {
-		const file = queue.pop();
+		const file = queue[0];
+
+		const updateQueue = (updatedQueue: File[]) => {
+			console.log('form updateQueue from uploadfiles.ts', updateQueue);
+			queue = updatedQueue; // Update queue
+			console.log('updated queue from uploadfiles.ts', queue);
+		};
+
 		if (!file) {
 			chat.composer?.dismissAllQuotedMessages();
 			return;
 		}
-
+		console.log('uploadNextFile', file);
 		imperativeModal.open({
 			component: FileUploadModal,
 			props: {
+				queue,
+				updateQueue,
+				msg,
+				chat,
 				file,
 				fileName: file.name,
 				fileDescription: chat.composer?.text ?? '',
 				showDescription: room && !isRoomFederated(room),
 				onClose: (): void => {
 					imperativeModal.close();
-					uploadNextFile();
+					// uploadNextFile();
 				},
 				onSubmit: async (fileName: string, description?: string): Promise<void> => {
 					Object.defineProperty(file, 'name', {
@@ -57,20 +71,20 @@ export const uploadFiles = async (chat: ChatAPI, files: readonly File[], resetFi
 					const e2eRoom = await e2e.getInstanceByRoomId(room._id);
 
 					if (!e2eRoom) {
-						uploadFile(file, description);
+						uploadFile(queue, description);
 						return;
 					}
 
 					const shouldConvertSentMessages = e2eRoom.shouldConvertSentMessages({ msg });
 
 					if (!shouldConvertSentMessages) {
-						uploadFile(file, description);
+						uploadFile(queue, description);
 						return;
 					}
 
 					const encryptedDescription = await e2eRoom.encryptAttachmentDescription(description, Random.id());
 
-					uploadFile(file, encryptedDescription, { t: 'e2e', e2e: 'pending' });
+					uploadFile(queue, encryptedDescription, { t: 'e2e', e2e: 'pending' });
 				},
 				invalidContentType: !(file.type && fileUploadIsValidContentType(file.type)),
 			},
@@ -78,5 +92,6 @@ export const uploadFiles = async (chat: ChatAPI, files: readonly File[], resetFi
 	};
 
 	uploadNextFile();
+	// }
 	resetFileInput?.();
 };

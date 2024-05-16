@@ -16,7 +16,17 @@ export class RocketChatFileAdapter {
 		internalUser: IUser,
 		fileRecord: Partial<IUpload>,
 	): Promise<{ files: IMessage['files']; attachments: IMessage['attachments'] }> {
+		console.log(
+			'file from RocketChatFileAdapter from file.ts readablestream' +
+				' filerecord ' +
+				+fileRecord +
+				' internaluser ' +
+				internalUser +
+				' internalRoomId ' +
+				internalRoomId,
+		);
 		const fileStore = FileUpload.getStore('Uploads');
+		console.log('fileStore from file.ts', fileStore);
 
 		const uploadedFile = await fileStore.insert(fileRecord, readableStream);
 		const { files, attachments } = await parseFileIntoMessageAttachments(uploadedFile, internalRoomId, internalUser);

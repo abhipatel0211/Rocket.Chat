@@ -12,6 +12,7 @@ type AttachmentsProps = {
 };
 
 const Attachments = ({ attachments, id, isMessageEncrypted = false }: AttachmentsProps): ReactElement => {
+	console.log('attachments from attachments.tsx', attachments, id);
 	return (
 		<>
 			<AttachmentEncryptionContext.Provider value={{ isMessageEncrypted }}>

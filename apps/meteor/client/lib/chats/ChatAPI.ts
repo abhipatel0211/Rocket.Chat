@@ -101,7 +101,7 @@ export type UploadsAPI = {
 	wipeFailedOnes(): void;
 	cancel(id: Upload['id']): void;
 	send(
-		file: File,
+		file: File[],
 		{ description, msg, t, e2e }: { description?: string; msg?: string; t?: IMessage['t']; e2e?: IMessage['e2e'] },
 	): Promise<void>;
 };

@@ -85,6 +85,7 @@ class GridFS implements IRocketChatFileStore {
 			return;
 		}
 		const rs = this.createReadStream(fileName);
+		console.log('file  from file.server.ts' + rs + file);
 		return {
 			readStream: rs,
 			contentType: file.contentType,
@@ -99,6 +100,7 @@ class GridFS implements IRocketChatFileStore {
 			return;
 		}
 		return new Promise<IFile>((resolve) => {
+			console.log('file  from file.server.ts' + file);
 			const data: Buffer[] = [];
 			file.readStream.on('data', (chunk) => {
 				return data.push(chunk);
@@ -180,6 +182,7 @@ class FileSystem implements IRocketChatFileStore {
 			return;
 		}
 		return new Promise<IFile>((resolve) => {
+			console.log('file  from  2nd file.server.ts' + file);
 			const data: Buffer[] = [];
 			file.readStream.on('data', (chunk: Buffer) => {
 				return data.push(chunk);
